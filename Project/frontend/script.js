@@ -32,13 +32,16 @@ const handleApiError = async (response) => {
 
 const initApp = async () => {
     const token = localStorage.getItem('sao_token');
+    console.log('Token in localStorage:', token ? 'Found' : 'Not found');
     if (!token) {
         window.location.href = 'signin.html';
         return;
     }
 
     currentUser = getStoredUser();
+    console.log('User from localStorage:', currentUser);
     if (!currentUser) {
+        console.log('No user found, logging out...');
         logout();
         return;
     }

@@ -29,35 +29,21 @@ from .auth_utils import hash_password, verify_password, create_access_token
 # -----------------------------------------------------
 app = FastAPI(title="Disease Prediction API", version="1.0")
 
-# -----------------------------------------------------
-# ENABLE CORS - SECURE CONFIGURATION
-# -----------------------------------------------------
-# Only allow specific origins in production, use environment variable for flexibility
-ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "http://127.0.0.1:5500,http://localhost:5500,http://127.0.0.1:3000,http://localhost:3000,http://127.0.0.1:8000")
-origins = [origin.strip() for origin in ALLOWED_ORIGINS.split(",")]
-
-# Validate origins to prevent security issues
-validated_origins = []
-for origin in origins:
-    # Only allow http/https origins, not wildcard or file protocols
-    if origin.startswith(("http://", "https://")) and "*" not in origin:
-        validated_origins.append(origin)
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=validated_origins,
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-Requested-With"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # -----------------------------------------------------
 # LOAD MODEL + SYMPTOMS - SECURE PATH HANDLING
 # -----------------------------------------------------
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 MODEL_PATH = os.environ.get("MODEL_PATH")
 if not MODEL_PATH:
-    # Default path with environment awareness
-    BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     MODEL_PATH = os.path.join(BASE_DIR, "model", "disease_model.pkl")
 
 SYMPTOM_LIST_PATH = os.environ.get("SYMPTOM_LIST_PATH")

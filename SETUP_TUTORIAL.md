@@ -17,12 +17,13 @@
 ### Required Software
 - **Python 3.12+** - [Download](https://www.python.org/downloads/)
 - **Node.js 18+** - [Download](https://nodejs.org/)
-- **PostgreSQL 15+** - [Download](https://www.postgresql.org/download/) or use Docker
 - **Git** - [Download](https://git-scm.com/)
-- **uv** (Python package manager) - Install with: `pip install uv`
 
 ### Optional Software
+- **Neon PostgreSQL** (Recommended) - Free cloud PostgreSQL at [neon.tech](https://neon.tech)
+- **PostgreSQL 15+** - Local installation from [postgresql.org](https://www.postgresql.org/download/)
 - **Docker Desktop** - For containerized database
+- **uv** (faster package manager) - Install with: `pip install uv`
 - **VS Code** - Recommended IDE with Python extensions
 
 ---
@@ -35,25 +36,15 @@ git clone <your-repo-url>
 cd DiseasePredictionApp
 ```
 
-### 2. Create Python Virtual Environment
+### 2. Install Python Dependencies
 ```bash
-# Create virtual environment using uv
-uv venv .venv
+# Using pip (recommended for most users)
+python3 -m pip install --upgrade pip
+python3 -m pip install -r Project/requirements.txt
 
-# Activate virtual environment
-# On Windows:
-.venv\Scripts\activate
-
-# On macOS/Linux:
-source .venv/bin/activate
-
-# Upgrade pip
-uv pip install --upgrade pip
-```
-
-### 3. Install Python Dependencies
-```bash
-uv pip install -r Project/requirements.txt
+# OR using uv (faster, optional)
+# pip install uv
+# uv pip install -r Project/requirements.txt
 ```
 
 ### 4. Install Frontend Dependencies (Optional - for linting)
@@ -63,26 +54,37 @@ npm install
 cd ../..
 ```
 
-### 5. Configure Environment Variables
+### 3. Configure Environment Variables
 ```bash
 # Copy the example environment file
 cp .env.example .env
 
-# Edit the .env file with your settings
+# Generate a secure JWT secret
+python3 -c "import secrets; print(secrets.token_hex(32))"
+
+# Edit the .env file with your database URL and JWT secret
+# On Linux/macOS:
 nano .env
+
+# On Windows:
+notepad .env
 ```
 
 **Required `.env` configuration:**
 ```env
 # Database (choose one option)
 
-# Option 1: Local PostgreSQL
-NEON_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/disease_prediction
+# Option 1: Neon PostgreSQL (Recommended - Free, no installation)
+# Get your connection string from https://console.neon.tech
+NEON_DATABASE_URL=postgresql://user:password@ep-xxx.us-east-1.aws.neon.tech/neondb?sslmode=require
 
-# Option 2: Docker PostgreSQL (run command below first)
+# Option 2: Local PostgreSQL
+# NEON_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/disease_prediction
+
+# Option 3: Docker PostgreSQL (run command in Option 2 below first)
 # NEON_DATABASE_URL=postgresql://postgres:postgres@localhost:5433/disease_prediction
 
-# JWT Configuration (CHANGE IN PRODUCTION!)
+# JWT Configuration (CHANGE THE SECRET IN PRODUCTION!)
 JWT_SECRET=your-super-secret-key-minimum-32-characters-long
 JWT_ALGORITHM=HS256
 JWT_EXPIRES_SECONDS=3600
@@ -100,7 +102,19 @@ ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:5500,http://localhost:550
 
 ## Database Setup
 
-### Option 1: Local PostgreSQL Installation
+### Option 1: Neon PostgreSQL (Recommended)
+
+Neon is a free, cloud-based PostgreSQL database. No installation required.
+
+1. **Sign up** at [neon.tech](https://neon.tech)
+2. **Create a project** in the Neon console
+3. **Copy the connection string** from the Neon dashboard
+4. **Update `.env` file:**
+   ```env
+   NEON_DATABASE_URL=postgresql://user:password@ep-xxx.us-east-1.aws.neon.tech/neondb?sslmode=require
+   ```
+
+### Option 2: Local PostgreSQL Installation
 
 1. **Install PostgreSQL** from [postgresql.org](https://www.postgresql.org/download/)
 
@@ -129,7 +143,7 @@ ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:5500,http://localhost:550
    \q
    ```
 
-### Option 2: Docker PostgreSQL (Recommended)
+### Option 3: Docker PostgreSQL
 
 1. **Install Docker Desktop** from [docker.com](https://www.docker.com/products/docker-desktop/)
 
@@ -152,15 +166,10 @@ ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:5500,http://localhost:550
    PGPASSWORD=postgres psql -h localhost -p 5433 -U postgres -d disease_prediction
    ```
 
-4. **Update `.env` file:**
-   ```env
-   NEON_DATABASE_URL=postgresql://postgres:postgres@localhost:5433/disease_prediction
-   ```
-
 ### Verify Database Connection
 ```bash
 # Test database connection
-.venv\Scripts\python -c "import os; from databases import Database; db = Database(os.getenv('NEON_DATABASE_URL')); print('Database connected!')"
+python3 -c "import os; from dotenv import load_dotenv; from databases import Database; load_dotenv(); db = Database(os.getenv('NEON_DATABASE_URL')); print('Database connection configured!')"
 ```
 
 ---
@@ -169,33 +178,39 @@ ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:5500,http://localhost:550
 
 ### 1. Initialize Database Tables
 ```bash
-cd Project/backend
-
-# Create all tables
-.venv\Scripts\python -c "
+# Create all tables in PostgreSQL
+python3 -c "
 import asyncio
-from db import database, metadata, engine
-from models import users, chats, messages
+import sys
+sys.path.insert(0, 'Project')
+from backend.db import database, metadata, engine
+from backend.models import users, chats, messages
 
 async def init_db():
     await database.connect()
     metadata.create_all(bind=engine)
     await database.disconnect()
-    print('Database tables created!')
+    print('✅ Database tables created!')
 
 asyncio.run(init_db())
 "
 ```
 
-### 2. Train the Model (if not exists)
+### 2. Train the Model
 ```bash
-cd Project/model
-
-# Train the disease prediction model
-.venv\Scripts\python train_model.py
+# IMPORTANT: Run from project root, not from Project/model directory
+# The train_model.py expects to find data at Project/data/
+python3 Project/model/train_model.py
 
 # Verify model was created
-ls -la *.pkl
+ls -la Project/model/*.pkl
+```
+
+**Expected output:**
+```
+✅ Model trained successfully!
+Accuracy: 100.00%
+✅ Model & symptom list saved successfully.
 ```
 
 ### 3. Prepare Frontend
@@ -218,10 +233,9 @@ npm run lint
 
 ### 1. Start the Backend Server
 ```bash
-cd Project/backend
-
-# Start FastAPI server
-.venv\Scripts\python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+# IMPORTANT: Run from project root, not from Project/backend
+# The backend uses relative imports that require the module path
+python3 -m uvicorn Project.backend.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 **Expected output:**
@@ -236,14 +250,13 @@ INFO:     Application startup complete.
 ### 2. Start the Frontend
 ```bash
 # Option 1: Using Live Server (VS Code extension)
-# Open Project/frontend/index.html with Live Server
+# Right-click Project/frontend/index.html and select "Open with Live Server"
 
 # Option 2: Using Python HTTP server
-cd Project/frontend
-.venv\Scripts\python -m http.server 5500
+python3 -m http.server 5500 --directory Project/frontend
 
-# Option 3: Using npm serve (if installed)
-npx serve .
+# Option 3: Using npx serve (if available)
+npx serve Project/frontend
 ```
 
 ### 3. Access the Application
@@ -257,16 +270,14 @@ npx serve .
 
 ### Run Backend Tests
 ```bash
-cd Project/backend
-
 # Run all tests
-.venv\Scripts\python -m pytest test_api.py -v
+python3 -m pytest Project/backend/test_api.py -v
 
 # Run with coverage
-.venv\Scripts\python -m pytest test_api.py -v --cov=.
+python3 -m pytest Project/backend/test_api.py -v --cov=Project/backend
 
 # Run specific test
-.venv\Scripts\python -m pytest test_api.py::TestHealthCheck -v
+python3 -m pytest Project/backend/test_api.py::TestHealthCheck -v
 ```
 
 ### Test Endpoints Manually
@@ -317,7 +328,7 @@ curl http://localhost:8000/user/profile \
 Using HTTPie:
 ```bash
 # Install HTTPie
-uv pip install httpie
+python3 -m pip install httpie
 
 # Register
 http POST http://localhost:8000/auth/register fullName="Test User" email="test@example.com" password="password123" dob="1990-01-01" gender="male" nationality="USA"
@@ -465,57 +476,73 @@ You can manually trigger the workflow:
 
 #### 1. Database Connection Failed
 ```bash
-# Check PostgreSQL is running
+# Check Neon database is accessible (for Neon)
+curl https://console.neon.tech
+
+# Check local PostgreSQL is running
 pg_isready -h localhost -p 5432
 
-# Check connection string
-echo $NEON_DATABASE_URL
-
-# Test with Python
-.venv\Scripts\python -c "
+# Test connection string
+python3 -c "
 import os
+from dotenv import load_dotenv
+load_dotenv()
 from databases import Database
 db = Database(os.getenv('NEON_DATABASE_URL'))
-print('Connected!' if db else 'Failed!')
+print('Database URL:', os.getenv('NEON_DATABASE_URL'))
 "
 ```
 
 #### 2. Model File Not Found
 ```bash
 # Check model files exist
-ls -la Project/model/
+ls -la Project/model/*.pkl
 
-# If missing, train the model
-cd Project/model
-.venv\Scripts\python train_model.py
+# If missing, train the model (run from project root!)
+python3 Project/model/train_model.py
 ```
 
-#### 3. CORS Errors
+#### 3. Import Errors on Backend Startup
+```bash
+# ERROR: attempted relative import with no known parent package
+# Solution: Always run from project root, not from Project/backend
+# Wrong:
+cd Project/backend
+python3 -m uvicorn main:app
+
+# Correct:
+python3 -m uvicorn Project.backend.main:app --port 8000
+```
+
+#### 4. CORS Errors
 ```bash
 # Update ALLOWED_ORIGINS in .env
-ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:5500
+# Edit .env and add your frontend URL
+nano .env
 
 # Restart backend server
 ```
 
-#### 4. JWT Token Issues
+#### 5. JWT Token Issues
 ```bash
 # Generate new secret
-.venv\Scripts\python -c "import secrets; print(secrets.token_hex(32))"
+python3 -c "import secrets; print(secrets.token_hex(32))"
 
 # Update JWT_SECRET in .env
+nano .env
 ```
 
-#### 5. Port Already in Use
+#### 6. Port Already in Use
 ```bash
-# Find process using port
-netstat -ano | findstr :8000
+# On Linux/macOS:
+lsof -ti:8000 | xargs kill -9
 
-# Kill process (replace PID)
+# On Windows:
+netstat -ano | findstr :8000
 taskkill /PID <PID> /F
 
 # Or use different port
-.venv\Scripts\python -m uvicorn main:app --port 8001
+python3 -m uvicorn Project.backend.main:app --port 8001
 ```
 
 ### Getting Help
@@ -530,6 +557,9 @@ taskkill /PID <PID> /F
 
 ### Code Style
 ```bash
+# Install linting tools (if not already installed)
+python3 -m pip install black isort flake8 mypy
+
 # Format Python code
 black Project/backend/
 
@@ -590,5 +620,5 @@ For issues and questions:
 
 ---
 
-**Last Updated:** January 2026
-**Version:** 1.0.0
+**Last Updated:** January 12, 2026
+**Version:** 1.1.0
